@@ -1,8 +1,8 @@
 (include "./sxml.scm")
 
 (define-library (niyarin otw render)
-   (import (scheme base) (scheme write))
-   (export otw-render-html);
+   (import (scheme base) (scheme write) (niyarin sxml))
+   (export otw-render-html otw-render-view);
    (begin
      (define (otw-render-html str out-port)
        (let ((bv (string->utf8 str)))
@@ -14,4 +14,8 @@
              (bytevector-length bv))) out-port)
           (write-bytevector (string->utf8 "\r\n\r\n") out-port)
           (write-bytevector bv out-port)))
+
+     (define (otw-render-view sxml param)
+       (let ((out-port (cadr (assv 'port param))))
+          (otw-render-html (sxml->xml-string sxml) out-port)))
     ))

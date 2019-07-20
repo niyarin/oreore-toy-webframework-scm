@@ -140,9 +140,9 @@
            )))
 
      ;;
-     (define (toy-server-listen socket . opt)
+     (define (toy-server-listen socket opt)
          (let  ((in-port (socket-input-port socket))
-                (out-port (socket-input-port socket))
+                (out-port (socket-output-port socket))
                 (mode 
                   (cond 
                     ((assv 'mode opt) =>
@@ -169,12 +169,16 @@
                (display first-line)(newline)
                (case http-method
                  ((GET) 
-                  (dispatcher 'GET (toy-server-get first-line)))
+                   (dispatcher out-port 'GET (toy-server-get first-line))
+                   (close-port in-port)
+                   (close-port out-port)
+                   (socket-shutdown socket *shut-rdwr*)
+                   (socket-close socket))
                  (else
                    (error "ERROR")))))))
 
      ;;starting server function 
-     (define (toy-server-run port)
+     (define (toy-server-run port . opt)
        (begin
           (display "Serving HTTP on 0.0.0.0 port ") 
           (display port) 
@@ -185,8 +189,8 @@
               (thread-start! 
                 (make-thread
                   (lambda ()
-                    (toy-server-listen
-                      socket))))
+                    (toy-server-listen 
+                      socket opt))))
               (loop)))))
 
      (define (toy-server-library-test)

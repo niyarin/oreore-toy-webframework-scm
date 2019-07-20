@@ -13,16 +13,28 @@
       (define (otw-create-env)
         (cons 0 '()))
 
-      (define (otw-dispatcher out-port method url-qparam . opt)
-        (case method
-          ((GET)
-            (display "DISPATCHER!")(display url-qparam)(display method)(newline)
-            (otw-render-html "<html><body>HELLO WORLD</body><html>" out-port)
-           )
-          (else
-
-            )))
-
+      (define (otw-dispatcher index-page)
+        (lambda (out-port method url-qparam . opt)
+           (case method
+             ((GET)
+               (let ((als (cadr url-qparam))
+                     (uri (car url-qparam)))
+                 (display uri)(display als)(newline)
+                 (cond
+                   ((assv 'contid als)
+                    => (lambda (apair)
+                         (cadr apair)
+                         ))
+                   (else 
+                     (index-page 
+                       (cons 
+                         (list 'port out-port)
+                          (cons (list 'url uri) als)))
+                     ))
+                  ;(otw-render-html "<html><body>HELLO WORLD</body><html>" out-port)
+              ))
+             (else
+               ))))
 
       (define (otw-proc-generate-url! env cont opt)
          (let ((id (+ (car env) 1))
@@ -33,6 +45,7 @@
                (base-url 
                  (cond ((assv 'base-url opt) => cadr)
                        (else "../"))))
+
            (set-car! env id)
            (set-cdr! 
              (cons 
@@ -62,7 +75,7 @@
                            env-name
                            cont
                            opt))))
-               bodies ...)))))
+                  bodies ...)))))
 
      (define (otw-library-test)
        (let ((tmp-env (otw-create-env)))
