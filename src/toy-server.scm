@@ -9,7 +9,7 @@
    (export toy-server-run toy-server-library-test)
    (begin
 
-     (define (toy-server-ok-develop e)
+     (define (toy-server-500-develop e)
        (display "ERROR")(display e)(newline)
        )
 
@@ -26,7 +26,7 @@
          (cond
            ((= (string-length query-string) index) 
             (cons 
-              (cons
+              (list
                 left
                 (substring query-string sindex index))
               res))
@@ -39,7 +39,7 @@
               (+ index 1) 
               (+ index 1) 
               #f
-              (substring query-string sindex index)
+              (string->symbol (substring query-string sindex index))
               res))
            ((and (not state)
                  (char=?
@@ -51,7 +51,7 @@
               #t
               left
               (cons
-                 (cons 
+                 (list 
                    left
                    (substring query-string sindex index))
                  res)))
@@ -63,21 +63,27 @@
                left
                res)))))
 
-     (define GET-MATCH-PATTERN
-         `(: "GET" (+ space)
-             (-> path 
-                 (+ 
-                   ,(char-set-adjoin 
-                      char-set:letter+digit
-                      #\- #\_ #\, #\.  #\!  #\/ #\' #\( #\) #\*)
-                   ))
-             (? "?" (-> param (* any))) (+ space)
-             (* any)))
+    (define (otw-generate-first-line-pattern mode)
+      `(: ,mode (+ space)
+          (-> path 
+              (+ 
+                ,(char-set-adjoin 
+                   char-set:letter+digit
+                   #\- #\_ #\, #\.  #\!  #\/ #\' #\( #\) #\*)
+                ))
+          (? "?" (-> param (* any))) (+ space)
+          (* any)))
 
-     (define (toy-server-get line)
+     (define GET-MATCH-PATTERN
+         (otw-generate-first-line-pattern "GET"))
+
+    (define POST-MATCH-PATTERN
+         (otw-generate-first-line-pattern "POST"))
+
+     (define (toy-server-match-first-line pattern line)
        (let ((matches
                 (regexp-matches
-                  GET-MATCH-PATTERN
+                  pattern
                   line)
                 ))
         (cond 
@@ -89,18 +95,24 @@
                      (lambda (x) 
                         (toy-server-decompose-query-parameter x)))
                  (else '()))))
-           (else #f)
-         )))
+           (else #f))))
 
      (define (toy-server-read-first in-port)
        (let ((output-port (open-output-string)))
          (let loop ()
            (let ((c (read-u8 in-port)))
              (if (= c 13)
-               (get-output-string output-port)
+               (begin
+                  (read-u8 in-port)
+                  (get-output-string output-port))
                (begin
                  (write-char (integer->char c) output-port)
                  (loop)))))))
+
+     (define (toy-server-match-contents-line line)
+       (regexp-matches 
+         '(: "Content-Length: " (-> length (+ numeric)))
+          line))
 
      (define (toy-server-get-http-method http-first-line)
        (letrec-syntax
@@ -169,11 +181,49 @@
                (display first-line)(newline)
                (case http-method
                  ((GET) 
-                   (dispatcher out-port 'GET (toy-server-get first-line))
+                   (dispatcher out-port 'GET (toy-server-match-first-line GET-MATCH-PATTERN first-line))
                    (close-port in-port)
                    (close-port out-port)
                    (socket-shutdown socket *shut-rdwr*)
                    (socket-close socket))
+                 ((POST)
+                  (let ((uri (toy-server-match-first-line POST-MATCH-PATTERN first-line)))
+                     (let* ((len
+                              (let loop ((line (toy-server-read-first in-port))
+                                         (res 0))
+                                (write line)(newline)
+                                (cond 
+                                  ((zero? (string-length line)) res)
+                                  ((toy-server-match-contents-line line)
+                                   => 
+                                   (lambda (matcher)
+                                      (loop (toy-server-read-first in-port)
+                                            (string->number 
+                                              (regexp-match-submatch 
+                                                matcher
+                                                'length))
+                                            )))
+                                  (else (loop (toy-server-read-first in-port) res)))))
+                            (content
+                              (let ((out-str-port (open-output-string)))
+                                 (let loop ((i 0))
+                                   (if (= i len)
+                                      (get-output-string out-str-port)
+                                      (begin
+                                         (write-char 
+                                           (integer->char (read-u8  in-port))
+                                           out-str-port)
+                                         (loop (+ i 1) ))))))
+                            
+                            (content-decomposed 
+                              (toy-server-decompose-query-parameter content)))
+                       (begin;body
+                         (dispatcher out-port 'POST uri `(content ,content-decomposed))
+                         (close-port in-port)
+                         (close-port out-port)
+                         (socket-shutdown socket *shut-rdwr*)
+                         (socket-close socket)
+                       ))))
                  (else
                    (error "ERROR")))))))
 
@@ -196,5 +246,13 @@
      (define (toy-server-library-test)
          (display (toy-server-get-http-method "GET /index?abc=123&def=456"))(newline)
          (display (toy-server-get-http-method "POST /index HTTP/1.1"))(newline)
-       )
+         (display 
+           (regexp-match-submatch
+              (toy-server-match-contents-line "Content-Length: 18")
+              'length
+              ))(newline))
      ))
+
+
+;(import (scheme base)(niyarin toy-server))
+;(toy-server-library-test)
