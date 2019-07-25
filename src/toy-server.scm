@@ -190,7 +190,6 @@
                      (let* ((len
                               (let loop ((line (toy-server-read-first in-port))
                                          (res 0))
-                                (write line)(newline)
                                 (cond 
                                   ((zero? (string-length line)) res)
                                   ((toy-server-match-contents-line line)
