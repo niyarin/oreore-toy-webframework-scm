@@ -16,6 +16,9 @@
           (write-bytevector bv out-port)))
 
      (define (otw-render-view sxml param)
-       (let ((out-port (cadr (assv 'port param))))
-          (otw-render-html (sxml->xml-string sxml) out-port)))
+       (let ((out-port (cadr (assv 'port param)))
+             (exit-page (cadr (assv 'exit param))))
+          (otw-render-html (sxml->xml-string sxml) out-port)
+       (exit-page)))
+
     ))
