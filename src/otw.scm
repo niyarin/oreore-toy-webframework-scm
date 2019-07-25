@@ -1,14 +1,13 @@
-(include "./otw-render.scm")
-
 (define-library (niyarin otw) 
    (import 
      (scheme base)
      (scheme write)
      (scheme list)
      (scheme hash-table)
-     (niyarin otw render))
+     (scheme cxr)
+     (srfi 18))
 
-   (export otw-let-env otw-dispatcher otw-generate-uri otw-library-test otw-validation-not-null?)
+   (export otw-let-env otw-dispatcher otw-generate-uri otw-library-test otw-validation-not-null? otw-env-ref-port otw-env-ref-exit)
 
    (begin
       (define (otw-create-env)
@@ -18,6 +17,8 @@
         (lambda (out-port method url-qparam . opt)
           (call/cc 
             (lambda (exit)
+             (begin
+               (otw-env-set-port-and-exit! env out-port exit)
               (case method
                 ((GET)
                   (let ((als (cadr url-qparam))
@@ -61,7 +62,8 @@
                            (list 'port out-port)
                            (cons (list 'url uri) als)))))))
                 (else
-                  ))))))
+                  ))
+             (otw-env-delete! env))))))
 
       (define (otw-proc-generate-url! env cont opt)
          (let ((id (+ (car env) 1))
@@ -124,6 +126,20 @@
          #t
          keys))
 
+     (define (otw-env-ref-port env)
+       (car (hash-table-ref (caddr env) (current-thread))))
+
+     (define (otw-env-ref-exit env)
+       (cadr (hash-table-ref (caddr env) (current-thread))))
+
+     (define (otw-env-set-port-and-exit! env port exit)
+         (hash-table-set! (caddr env) (current-thread) (list port exit)))
+
+     (define (otw-env-delete! env)
+       (hash-table-delete! 
+         (caddr env)
+         (current-thread)))
+
      (define (otw-library-test)
        (let ((tmp-env (otw-create-env)))
           (display 
@@ -136,6 +152,7 @@
                 (url-params (("qqqq" "wwww")("eeee" "rrrr"))))))
           (newline)
           ))
+
       ))
 
 
