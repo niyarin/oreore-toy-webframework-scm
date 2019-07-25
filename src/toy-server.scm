@@ -166,7 +166,6 @@
                         cadr)
                      (else 
                        (lambda x 
-                         (display x)(newline)
                          x)))))
            (guard 
              (e 
@@ -178,7 +177,7 @@
                       (toy-server-read-first in-port))
                     (http-method
                       (toy-server-get-http-method first-line)))
-               (display first-line)(newline)
+
                (case http-method
                  ((GET) 
                    (dispatcher out-port 'GET (toy-server-match-first-line GET-MATCH-PATTERN first-line))
@@ -225,7 +224,7 @@
                          (socket-close socket)
                        ))))
                  (else
-                   (error "ERROR")))))))
+                   (error "ERROR:Undefined http method")))))))
 
      ;;starting server function 
      (define (toy-server-run port . opt)
