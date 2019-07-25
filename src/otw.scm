@@ -5,13 +5,14 @@
      (scheme base)
      (scheme write)
      (scheme list)
+     (scheme hash-table)
      (niyarin otw render))
 
    (export otw-let-env otw-dispatcher otw-generate-uri otw-library-test otw-validation-not-null?)
 
    (begin
       (define (otw-create-env)
-        (cons 0 '()))
+        (list 0 '() (make-hash-table eq?)))
 
       (define (otw-dispatcher index-page env)
         (lambda (out-port method url-qparam . opt)
@@ -42,7 +43,7 @@
                      ((assv 'contid als)
                       =>  (lambda (apair)
                             (let* ((contid (string->number (cadr apair)))
-                                   (cont-apair (assv contid (cdr env))))
+                                   (cont-apair (assv contid (cadr env))))
                                ((cdr cont-apair)
                                 (list
                                    (list 'port out-port)
@@ -64,7 +65,7 @@
 
       (define (otw-proc-generate-url! env cont opt)
          (let ((id (+ (car env) 1))
-               (als (cdr env))
+               (als (cadr env))
                (url-params
                  (cond ((assv 'url-params opt) => cadr)
                        (else '())))
@@ -73,8 +74,8 @@
                        (else "../"))))
 
            (set-car! env id)
-           (set-cdr! 
-             env
+           (set-car! 
+             (cdr env)
              (cons
                 (cons 
                   id
@@ -106,16 +107,18 @@
                   bodies ...)))))
 
      (define (otw-validation-not-null? alist keys)
-       (display alist)(newline)
+       (write alist)(newline)
+       (write keys)(newline)
        (fold
          (lambda (key res)
            (cond 
              ((not res) #f)
              ((assv key alist)
               => (lambda (apair)
-                   (zero?
-                     (string-length 
-                        (cadr apair)))))
+                   (not 
+                      (zero?
+                        (string-length 
+                           (cadr apair))))))
              (else 
                #f)))
          #t
